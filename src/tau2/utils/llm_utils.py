@@ -29,6 +29,7 @@ from tau2.data_model.message import (
     UserMessage,
 )
 from tau2.environment.tool import Tool
+from tau2.utils.reasoning_effort import reasoning_effort_pre_api_callback
 
 # litellm._turn_on_debug()
 
@@ -37,6 +38,7 @@ if USE_LANGFUSE:
     litellm.success_callback = ["langfuse"]
     litellm.failure_callback = ["langfuse"]
 
+litellm.pre_api_callback = [reasoning_effort_pre_api_callback]
 litellm.drop_params = True
 
 if LLM_CACHE_ENABLED:
@@ -64,12 +66,6 @@ if LLM_CACHE_ENABLED:
 else:
     logger.info("LiteLLM: Cache is disabled")
     litellm.disable_cache()
-
-
-ALLOW_SONNET_THINKING = False
-
-if not ALLOW_SONNET_THINKING:
-    logger.warning("Sonnet thinking is disabled")
 
 
 def _parse_ft_model_name(model: str) -> str:
@@ -199,8 +195,6 @@ def generate(
     if kwargs.get("num_retries") is None:
         kwargs["num_retries"] = DEFAULT_MAX_RETRIES
 
-    if model.startswith("claude") and not ALLOW_SONNET_THINKING:
-        kwargs["thinking"] = {"type": "disabled"}
     litellm_messages = to_litellm_messages(messages)
     tools = [tool.openai_schema for tool in tools] if tools else None
     if tools and tool_choice is None:
