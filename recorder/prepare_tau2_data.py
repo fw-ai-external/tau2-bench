@@ -3,6 +3,8 @@ import argparse
 import json
 from pathlib import Path
 
+from tau2.registry import registry
+
 def parse_args():
     """
     Parses command-line arguments.
@@ -45,6 +47,12 @@ def parse_args():
         help="Output directory to save processed files (e.g., /mnt/datasets/tau2-airline).",
     )
     p.add_argument(
+        "--domain",
+        type=str,
+        required=True,
+        help="Domain name (e.g., 'airline', 'retail', 'telecom') for tool spec export.",
+    )
+    p.add_argument(
         "--run-name-map",
         type=str,
         nargs="*",
@@ -85,7 +93,34 @@ def find_dialog_files(input_dirs: list[str]) -> list[Path]:
             print(f"Warning: No 'tau2_dialogs.jsonl' found in {path}, skipping.")
     return files
 
-def format_record(record: dict, stats: dict, run_name: str) -> dict | None:
+def export_agent_tools(domain_name: str, output_path: Path) -> list[dict]:
+    """
+    Export agent tools for a domain in OpenAI function calling format.
+    
+    Args:
+        domain_name: Name of the domain (e.g., 'airline', 'retail')
+        output_path: Path to save the tools JSON file
+        
+    Returns:
+        List of tool schemas in OpenAI format
+    """
+    # Get environment constructor from registry
+    env_constructor = registry.get_env_constructor(domain_name)
+    environment = env_constructor()
+    
+    # Get agent tools and convert to OpenAI schema
+    tools = environment.get_tools()
+    tool_schemas = [tool.openai_schema for tool in tools]
+    
+    # Save to file
+    tools_file = output_path / f"agent_{domain_name}_tools.json"
+    with open(tools_file, "w", encoding="utf-8") as f:
+        json.dump(tool_schemas, f, indent=2)
+    
+    print(f"Exported {len(tool_schemas)} agent tools to: {tools_file}")
+    return tool_schemas
+
+def format_record(record: dict, stats: dict, run_name: str, tools: list[dict]) -> dict | None:
     """
     Formats a single record from tau2_dialogs.jsonl into the format
     expected by the cookbook-internal workflow, while tracking stats.
@@ -122,6 +157,7 @@ def format_record(record: dict, stats: dict, run_name: str) -> dict | None:
             "domain_task": f"tau2:{domain}:{task_id}",
             "run_name": run_name,
             "messages": record["messages"],
+            "tools": tools,
             "exact_match": float(score),
             "original_session_id": record["session_id"],
             "original_task_id": task_id,
@@ -169,6 +205,9 @@ def main():
     output_path = Path(args.output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     print(f"Output will be saved to: {output_path}")
+
+    # Export agent tools for the domain
+    tool_schemas = export_agent_tools(args.domain, output_path)
 
     dialog_files = find_dialog_files(args.input_dirs)
     if not dialog_files:
@@ -234,7 +273,7 @@ def main():
                         record = json.loads(line)
                         task_id = record["task_id"]
                         
-                        formatted = format_record(record, stats, run_name)
+                        formatted = format_record(record, stats, run_name, tool_schemas)
                         if not formatted:
                             continue
 
