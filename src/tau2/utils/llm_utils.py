@@ -173,6 +173,24 @@ def to_litellm_messages(messages: list[Message]) -> list[dict]:
     return litellm_messages
 
 
+def _apply_model_specific_workarounds(messages: list[dict], model: str) -> None:
+    """
+    Apply model-specific workarounds to litellm messages (in-place).
+    
+    TODO: Remove these workarounds when provider issues are resolved.
+    """
+    # Workaround: Fireworks AI rejects 'name' field in tool_calls for qwen3 models
+    # Issue: Fireworks returns "Extra inputs are not permitted, field: 'messages[X].tool_calls[0].name'"
+    # Affected: qwen3-235b-a22b and other qwen3 variants on Fireworks AI
+    # Status: Deprecated - use alternative models (glm-4p5, claude, gemini)
+    if "qwen3" in model.lower():
+        logger.warning(f"qwen3 models deprecated with Fireworks AI (tool calling compatibility issues)")
+        for msg in messages:
+            if msg.get("role") == "assistant" and msg.get("tool_calls"):
+                for tool_call in msg["tool_calls"]:
+                    tool_call.pop("name", None)
+
+
 def generate(
     model: str,
     messages: list[Message],
@@ -196,6 +214,10 @@ def generate(
         kwargs["num_retries"] = DEFAULT_MAX_RETRIES
 
     litellm_messages = to_litellm_messages(messages)
+    
+    # Apply provider/model-specific workarounds before sending to API
+    _apply_model_specific_workarounds(litellm_messages, model)
+    
     tools = [tool.openai_schema for tool in tools] if tools else None
     if tools and tool_choice is None:
         tool_choice = "auto"
