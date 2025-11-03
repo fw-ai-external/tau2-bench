@@ -1,6 +1,12 @@
 # Tau2 Recording and Training Workflow
 
-This directory contains tools for recording, analyzing, and preparing conversation traces from τ²-bench simulations for SFT/RFT fine-tuning.
+This directory contains tools for recording, analyzing, and preparing conversation traces from τ²-bench simulations for supervised fine-tuning (SFT) and reinforcement fine-tuning (RFT).
+
+## Study Documentation
+
+For documentation on the text-based distillation study conducted using this infrastructure:
+- **[Executive Summary](./executive_summary.md)** - Business-focused summary of findings and conclusions
+- **[Technical Methods](./technical_methods.md)** - Detailed audit-ready documentation for reproducibility
 
 ## Overview: 5-Step Workflow
 
@@ -199,19 +205,79 @@ Use `prepare_tau2_data.py` to combine multiple runs and create RLOR-compatible t
 ### Usage
 
 ```bash
-python recorder/prepare_tau2_data.py \
+python /home/yi/home/tau2-bench/recorder/prepare_tau2_data.py \
   --input-dirs \
-    recordings/run_20251021-002721_airline_gpt-5_temp1.0_tr4 \
-    recordings/run_20251021-002740_airline_gemini-2.5-pro_temp1.0_tr4 \
-    recordings/run_20251021-002750_airline_gpt-5-mini_temp1.0_tr4 \
-    recordings/run_20251021-004406_airline_claude-sonnet-4-5-20250929_temp1.0_tr4 \
-  --output-dir /mnt/datasets/tau2-bench/recordings/airlines/airline-user-gemini2.5pro-til20pct \
-  --run-name-map \
-    run_20251021-002721_airline_gpt-5_temp1.0_tr4:gpt-5 \
-    run_20251021-002740_airline_gemini-2.5-pro_temp1.0_tr4:gemini-2.5-pro \
-    run_20251021-002750_airline_gpt-5-mini_temp1.0_tr4:gpt-5-mini \
-    run_20251021-004406_airline_claude-sonnet-4-5-20250929_temp1.0_tr4:claude-sonnet \
+    /home/yi/home/tau2-bench/recordings/airline-gemini-2.5-flash-user/run_20251021-184516_airline_claude-sonnet-4-5-20250929_temp1.0_tr4 \
+    /home/yi/home/tau2-bench/recordings/airline-gemini-2.5-flash-user/run_20251021-184516_airline_deepseek-v3p1-terminus_temp1.0_tr4 \
+    /home/yi/home/tau2-bench/recordings/airline-gemini-2.5-flash-user/run_20251021-184516_airline_gemini-2.5-pro_temp1.0_tr4 \
+    /home/yi/home/tau2-bench/recordings/airline-gemini-2.5-flash-user/run_20251021-184516_airline_glm-4p5_temp1.0_tr4 \
+    /home/yi/home/tau2-bench/recordings/airline-gemini-2.5-flash-user/run_20251021-184516_airline_gpt-5_temp1.0_tr4 \
+    /home/yi/home/tau2-bench/recordings/airline-gemini-2.5-flash-user/run_20251021-184516_airline_gpt-5-mini_temp1.0_tr4 \
+    /home/yi/home/tau2-bench/recordings/airline-gemini-2.5-flash-user/run_20251021-184516_airline_kimi-k2-instruct-0905_temp1.0_tr4 \
+    /home/yi/home/tau2-bench/recordings/airline-gemini-2.5-flash-user/run_20251021-184516_airline_qwen3-235b-a22b_temp1.0_tr4 \
+  --output-dir /mnt/datasets/tau2-bench/recordings/airline/airline-user-gemini-2.5-flash-til20pct \
+  --domain airline \
   --test-fraction 0.2
+```
+
+Alternatively, if you want to break it down:
+```bash 
+# --- env ---
+export BASE="/home/yi/home/tau2-bench"
+export REC_BASE="/home/yi/home/tau2-bench/recordings/airline-gemini-2.5-flash-user"
+export OUT_BASE="/mnt/datasets/tau2-bench/recordings/airline"
+export AGG_OUT="$OUT_BASE/airline-user-gemini-2.5-flash-til20pct"
+export SPLIT_MANIFEST="$AGG_OUT/split_manifest.json"
+
+# Input directories (basenames)
+export RUN_BASENAMES=(
+  run_20251021-184516_airline_claude-sonnet-4-5-20250929_temp1.0_tr4
+  run_20251021-184516_airline_deepseek-v3p1-terminus_temp1.0_tr4
+  run_20251021-184516_airline_gemini-2.5-pro_temp1.0_tr4
+  run_20251021-184516_airline_glm-4p5_temp1.0_tr4
+  run_20251021-184516_airline_gpt-5_temp1.0_tr4
+  run_20251021-184516_airline_gpt-5-mini_temp1.0_tr4
+  run_20251021-184516_airline_kimi-k2-instruct-0905_temp1.0_tr4
+  run_20251021-184516_airline_qwen3-235b-a22b_temp1.0_tr4
+)
+
+# Readable run names (map basename -> short name)
+declare -A RUN_NAME_MAP=(
+  [run_20251021-184516_airline_claude-sonnet-4-5-20250929_temp1.0_tr4]=claude-sonnet-4.5
+  [run_20251021-184516_airline_deepseek-v3p1-terminus_temp1.0_tr4]=deepseek-v3.1-terminus
+  [run_20251021-184516_airline_gemini-2.5-pro_temp1.0_tr4]=gemini-2.5-pro
+  [run_20251021-184516_airline_glm-4p5_temp1.0_tr4]=glm-4.5
+  [run_20251021-184516_airline_gpt-5_temp1.0_tr4]=gpt-5
+  [run_20251021-184516_airline_gpt-5-mini_temp1.0_tr4]=gpt-5-mini
+  [run_20251021-184516_airline_kimi-k2-instruct-0905_temp1.0_tr4]=kimi-k2-0905
+  [run_20251021-184516_airline_qwen3-235b-a22b_temp1.0_tr4]=qwen3-235b-a22b
+)
+
+# Build args
+RUN_DIRS=$(printf " %s" "${RUN_BASENAMES[@]/#/$REC_BASE/}")
+RUN_NAME_MAP_ARGS=""
+for key in "${!RUN_NAME_MAP[@]}"; do
+  RUN_NAME_MAP_ARGS+=" $key:${RUN_NAME_MAP[$key]}"
+done
+
+python "$BASE/recorder/prepare_tau2_data.py" \
+  --input-dirs $RUN_DIRS \
+  --output-dir "$AGG_OUT" \
+  --domain airline \
+  --run-name-map $RUN_NAME_MAP_ARGS \
+  --test-fraction 0.2
+
+for key in "${RUN_BASENAMES[@]}"; do
+  run_name="${RUN_NAME_MAP[$key]}"
+  out_dir="$AGG_OUT/$run_name"
+  python "$BASE/recorder/prepare_tau2_data.py" \
+    --input-dirs "$REC_BASE/$key" \
+    --output-dir "$out_dir" \
+    --domain airline \
+    --run-name-map "$key:$run_name" \
+    --split-manifest "$SPLIT_MANIFEST"
+done
+
 ```
 
 ### What It Does
@@ -223,15 +289,20 @@ python recorder/prepare_tau2_data.py \
    - Ensures no data leakage between splits
 4. **Remaps run names**: Maps long directory names to clean identifiers
 5. **Generates split manifest**: `split_manifest.json` defines the split (reusable for future runs)
+6. **Sets group_id field**: Each record gets a `group_id` = `{run_name}:{domain}:{task_id}`
+   - Used by RLOR for grouping successes/failures in RFT (GRPO)
 
 ### Output
 
 ```
-/mnt/datasets/tau2-bench/recordings/airlines/airline-user-gemini2.5pro-til20pct/
+/mnt/datasets/tau2-bench/recordings/airline/airline-user-gemini-2.5-pro-til20pct/
 ├── train.jsonl              # 80% of tasks (all trials, all models)
 ├── test.jsonl               # 20% of tasks (all trials, all models)
+├── agent_airline_tools.json # OpenAI-format agent tool schemas
 └── split_manifest.json      # Defines train/test task split
 ```
+
+Note: The `agent_{domain}_tools.json` file contains the tool schemas in OpenAI function calling format. Additionally, each record in the train/test JSONL files includes a `tools` field with the same tool schemas.
 
 ### Statistics (Example)
 
@@ -249,9 +320,31 @@ To apply the same split to new model runs:
 ```bash
 python recorder/prepare_tau2_data.py \
   --input-dirs recordings/run_new_model_* \
-  --output-dir /mnt/datasets/tau2-bench/recordings/airlines/airline-user-newmodel-til20pct \
-  --split-manifest /mnt/datasets/tau2-bench/recordings/airlines/airline-user-gemini2.5pro-til20pct/split_manifest.json
+  --output-dir /mnt/datasets/tau2-bench/recordings/airline/airline-user-newmodel-til20pct \
+  --domain airline \
+  --split-manifest /mnt/datasets/tau2-bench/recordings/airline/airline-user-gemini-2.5-pro-til20pct/split_manifest.json
 ```
+
+### Validating Tools in Output Data
+
+Use the `check_tools_in_jsonl.py` script to validate that tools are properly embedded in your data:
+
+```bash
+# Check a single file
+python recorder/check_tools_in_jsonl.py /mnt/datasets/tau2-bench/recordings/airline/airline-user-gemini-2.5-flash-til20pct/gpt-5/train.jsonl
+
+# Check multiple files with summary
+python recorder/check_tools_in_jsonl.py /mnt/datasets/tau2-bench/recordings/airline/airline-user-gemini-2.5-flash-til20pct/gpt-5/*.jsonl --summary
+
+# Check all model subdirectories
+python recorder/check_tools_in_jsonl.py /mnt/datasets/tau2-bench/recordings/airline/airline-user-gemini-2.5-flash-til20pct/*/train.jsonl --summary
+```
+
+The script validates:
+- All records have the `tools` field
+- Tools are in the correct format (list of OpenAI function schemas)
+- Tool names are extracted and counted
+- Reports any JSON parsing errors or format issues
 
 ---
 
@@ -271,12 +364,12 @@ Once you have prepared data, use the RLOR training workflow to fine-tune models.
 load_train_data:
   kwargs:
     input_files:
-      - /mnt/datasets/tau2-bench/recordings/airlines/airline-user-gemini2.5pro-til20pct/train.jsonl
+      - /mnt/datasets/tau2-bench/recordings/airline/airline-user-gemini-2.5-pro-til20pct/train.jsonl
 
 load_test_data:
   kwargs:
     input_files:
-      - /mnt/datasets/tau2-bench/recordings/airlines/airline-user-gemini2.5pro-til20pct/test.jsonl
+      - /mnt/datasets/tau2-bench/recordings/airline/airline-user-gemini-2.5-pro-til20pct/test.jsonl
 ```
 
 Then run:
@@ -286,10 +379,12 @@ python recipes/workflow/rlor/main.py --config-name tau2_airline_multiturn
 
 This will:
 1. Load your prepared training data
-2. Filter successful examples for SFT (supervised fine-tuning warm-start)
-3. Prepare preference pairs for RFT (rejection fine-tuning / RLOR)
-4. Fine-tune a base model through both phases
-5. Evaluate at each checkpoint (base → SFT → RFT)
+2. Filter successful examples for SFT (supervised fine-tuning)
+3. Optionally prepare preference pairs for RFT (reinforcement fine-tuning)
+4. Fine-tune the base model
+5. Evaluate checkpoints
+
+**Note**: RFT is supported in the workflow but was not part of the documented distillation study. The study focused on SFT with and without rejection sampling (filtering for successful trials only).
 
 ---
 
@@ -340,13 +435,13 @@ with open("train.jsonl") as f:
             print(f"  Reason: {record['metrics'].get('reward_basis')}")
 ```
 
-**Filter by quality for RFT:**
+**Filter by success for rejection sampling (SFT):**
 ```python
-# Exclude near-misses to focus on clear failures
-rft_data = [
+# Rejection sampling: keep only successful trials with reward 1.0
+sft_success_data = [
     d for d in all_records
     if not d["metrics"].get("infra_failure", False)
-    and d["metrics"]["score"] < 0.5  # Only clear failures
+    and d["metrics"]["score"] == 1.0
 ]
 ```
 
@@ -371,34 +466,75 @@ See `EVALUATION_SYSTEM.md` for details, but briefly:
 - **NL Assertions**: LLM judge evaluation of complex policies
 - **Final Score**: Product of applicable components (both must pass to get 1.0)
 
-### SFT vs. RFT
+### Training Approaches
 
-- **SFT (Supervised Fine-Tuning)**: Train on successful examples only
+- **SFT (Supervised Fine-Tuning)**: Train on demonstration data
   ```python
-  sft_data = [d for d in dialogs if d["metrics"]["success"] == true]
+  # All demonstrations (exclude only infrastructure failures)
+  sft_data = [d for d in dialogs if not d["metrics"].get("infra_failure")]
   ```
 
-- **RFT (Rejection Fine-Tuning)**: Learn from failures alongside successes
+- **SFT with Rejection Sampling**: Train only on successful demonstrations
   ```python
+  # Rejection sampling: filter for reward 1.0
+  sft_success_data = [d for d in dialogs if d["metrics"]["score"] == 1.0]
+  ```
+
+- **RFT (Reinforcement Fine-Tuning)**: Use GRPO to learn from successes and failures
+  ```python
+  # Uses the same sft_data (all demonstrations with both successes and failures)
+  # GRPO grouping and preference learning happens inside RLOR workflow
+  # Supported in workflow but not used in the documented study
   rft_data = [d for d in dialogs if not d["metrics"].get("infra_failure")]
   ```
+  
+  **Note on RFT grouping:** RLOR uses the `group_id` field (set in `prepare_tau2_data.py`) to group successes and failures together for preference learning. The `group_id` is constructed as `{run_name}:{domain}:{task_id}`, meaning all trials of the same task from the same recording run are grouped together. GRPO requires that each group contains both successes and failures.
 
 ---
 
 ## Files in This Directory
 
+### Entry Points
+
 | File | Purpose |
 |------|---------|
-| `run_and_record.py` | Record traces via tau2 simulations |
-| `generate_run_scripts.py` | Create tmux execution scripts for multiple models |
-| `prepare_tau2_data.py` | Prepare data for RLOR training (train/test split) |
-| `analyze_dialogs.py` | Compute summary statistics from recorded traces |
+| `run_and_record.py` | Main script to record traces via tau2 simulations |
+| `generate_run_scripts.py` | Generate tmux execution scripts for parallel model evaluation |
+
+### Core Infrastructure
+
+| File | Purpose |
+|------|---------|
+| `llm_recorder.py` | LiteLLM monkeypatching infrastructure for payload capture |
+| `prepare_tau2_data.py` | Prepare data for RLOR training (train/test split, export tools) |
+| `common_args.py` | Shared argument definitions across scripts |
+
+### Diagnostic and Verification Tools
+
+| File | Purpose |
+|------|---------|
+| `check_tools_in_jsonl.py` | Validate that tools field is properly embedded in JSONL files |
+| `analyze_dialogs.py` | Compute summary statistics and performance metrics from recorded traces |
+
+### Study-Specific Scripts and Documentation
+
+| File | Purpose |
+|------|---------|
+| `generate_tau2_figures.py` | Generate visualizations from aggregated evaluation results for the distillation study |
+| `prep-tau2-from-gemini-2.5-flash.sh` | Airline domain data preparation script used in the study |
+| `prep-tau2-from-gemini-2.5-flash-retail.sh` | Retail domain data preparation script used in the study |
+| `executive_summary.md` | Business-focused summary of distillation study findings |
+| `technical_methods.md` | Detailed audit-ready documentation for study reproducibility |
+
+### General Documentation
+
+| File | Purpose |
+|------|---------|
+| `README.md` | This file - workflow documentation and infrastructure guide |
 | `EVALUATION_SYSTEM.md` | Deep dive into τ²-bench evaluation mechanics |
-| `llm_recorder.py` | LiteLLM monkeypatching for payload capture |
-| `common_args.py` | Shared argument definitions |
 
 ---
 
-**Updated**: October 21, 2025  
+**Updated**: October 30, 2025  
 **Workflow Version**: 5-step (Generate → Record → Analyze → Export → Train)
 
