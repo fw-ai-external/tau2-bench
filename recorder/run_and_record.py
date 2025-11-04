@@ -289,12 +289,11 @@ def main() -> None:
     # Register LiteLLM callback to handle reasoning effort and budget
     litellm.pre_api_callback = [reasoning_effort_pre_api_callback]
 
-    # Install recorder (monkeypatch LiteLLM)
+    # Install recorder (monkeypatch LiteLLM) to capture all LLM request/response payloads
     install_litellm_recorder(
         RecorderConfig(
             outdir=run_dir,
             include_tools=os.environ.get("RECORDER_INCLUDE_TOOLS", "0") == "1",
-            strip_think=os.environ.get("RECORDER_STRIP_THINK", "1") == "1",
             debug=args.debug or (os.environ.get("RECORDER_DEBUG", "0") == "1"),
         )
     )

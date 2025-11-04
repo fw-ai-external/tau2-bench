@@ -18,7 +18,6 @@ _FIRST_CALL_PRINTED = False
 class RecorderConfig:
     outdir: Path
     include_tools: bool = False
-    strip_think: bool = True
     debug: bool = False
 
 
@@ -161,9 +160,8 @@ def install_litellm_recorder(config: Optional[RecorderConfig] = None) -> None:
     if config is None:
         outdir = Path(os.environ.get("RECORDER_OUTDIR", "./recordings"))
         include_tools = os.environ.get("RECORDER_INCLUDE_TOOLS", "0") == "1"
-        strip_think = os.environ.get("RECORDER_STRIP_THINK", "1") == "1"
         debug = os.environ.get("RECORDER_DEBUG", "0") == "1"
-        config = RecorderConfig(outdir=outdir, include_tools=include_tools, strip_think=strip_think, debug=debug)
+        config = RecorderConfig(outdir=outdir, include_tools=include_tools, debug=debug)
 
     _ensure_dir(config.outdir)
     payloads_path = config.outdir / "tau2_payloads.jsonl"

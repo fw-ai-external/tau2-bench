@@ -88,9 +88,7 @@ Args
 - `--debug`: include raw provider JSON in payloads.
 
 ## ENV toggles
-- `RECORDER_OUTDIR` (default `./recordings`) — output dir.
 - `RECORDER_INCLUDE_TOOLS` (default `0`) — if `1`, inline compact `[tool_call] ...` notes into assistant messages in `dialogs.jsonl`.
-- `RECORDER_STRIP_THINK` (default `1`) — reserved switch for stripping `<think>` if used by providers.
 - `RECORDER_DEBUG` (default `0`) — if `1` (or `--debug`), include `response.raw` in payloads.
 
 ## Sanity prints & checks

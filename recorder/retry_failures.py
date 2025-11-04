@@ -218,7 +218,6 @@ def main():
         RecorderConfig(
             outdir=run_args.outdir,
             include_tools=os.environ.get("RECORDER_INCLUDE_TOOLS", "0") == "1",
-            strip_think=os.environ.get("RECORDER_STRIP_THINK", "1") == "1",
             debug=os.environ.get("RECORDER_DEBUG", "0") == "1",
         )
     )
