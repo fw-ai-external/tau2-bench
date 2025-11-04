@@ -514,6 +514,7 @@ See `EVALUATION_SYSTEM.md` for details, but briefly:
 | File | Purpose |
 |------|---------|
 | `check_tools_in_jsonl.py` | Validate that tools field is properly embedded in JSONL files |
+| `check_logprobs.py` | Test logprobs support across LLM providers via litellm |
 | `analyze_dialogs.py` | Compute summary statistics and performance metrics from recorded traces |
 
 ### Study-Specific Scripts and Documentation
@@ -526,12 +527,53 @@ See `EVALUATION_SYSTEM.md` for details, but briefly:
 | `executive_summary.md` | Business-focused summary of distillation study findings |
 | `technical_methods.md` | Detailed audit-ready documentation for study reproducibility |
 
+### Utilities and Debugging Tools
+
+| File | Purpose |
+|------|---------|
+| `retry_failures.py` | Retry infrastructure failures from previous runs with same configuration and seeds |
+| `view_reasoning_effort_direct.py` | Debug tool to test reasoning effort control by sending direct API calls to providers |
+
 ### General Documentation
 
 | File | Purpose |
 |------|---------|
 | `README.md` | This file - workflow documentation and infrastructure guide |
 | `EVALUATION_SYSTEM.md` | Deep dive into τ²-bench evaluation mechanics |
+| `llm_recorder_v1.md` | Original design documentation for the LiteLLM recorder infrastructure |
+| `reasoning_effort_guide.md` | Guide to controlling reasoning effort for reasoning-capable models |
+
+---
+
+## Additional Infrastructure Changes
+
+Beyond the files in `recorder/`, this branch includes several core infrastructure enhancements:
+
+### Core Infrastructure Extensions
+
+**`src/tau2/utils/reasoning_effort.py`** (new)
+- Implements unified reasoning effort control interface for reasoning-capable models
+- Provides LiteLLM pre-API callback (`reasoning_effort_pre_api_callback`) that translates reasoning effort parameters into provider-specific API formats
+- Supports OpenAI (`reasoning_effort`), Gemini (`thinkingBudget`), and Anthropic (disabled for stability)
+- Handles budget mapping for different reasoning effort levels (low/medium/high)
+
+**`src/tau2/utils/llm_utils.py`** (modified)
+- Integrated reasoning effort callback via `litellm.pre_api_callback`
+- Added `_apply_model_specific_workarounds()` function to handle provider-specific compatibility issues:
+  - **Qwen3 tool_calls fix**: Removes `name` field from tool_calls for qwen3 models on Fireworks AI (deprecated due to API compatibility issues)
+- Removed hardcoded Claude thinking disable in favor of reasoning_effort callback system
+
+### Key Features
+
+1. **Reasoning Effort Control**: Unified interface for controlling thinking depth across GPT, Gemini, and other reasoning-capable models. See `reasoning_effort_guide.md` for details.
+
+2. **Model-Specific Workarounds**: Automatic handling of provider compatibility issues (e.g., qwen3 tool_calls format).
+
+3. **Retry Infrastructure**: `retry_failures.py` allows selective retry of failed simulations without re-running successful ones, preserving seeds and configuration.
+
+4. **Logprobs Validation**: `check_logprobs.py` tests logprobs support across providers to identify which models support log probability extraction for analysis.
+
+5. **Direct API Testing**: `view_reasoning_effort_direct.py` bypasses LiteLLM to test reasoning effort parameters directly with provider APIs for debugging.
 
 ---
 
